@@ -1,0 +1,145 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[5]:
+
+
+import json
+import requests
+import pandas as pd
+import datetime
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# In[6]:
+
+
+api_key = "key"
+city = "Breckenridge,USA"
+
+url = f"http://api.openweathermap.org/data/2.5/forecast?q={city}&cnt240&appid={api_key}"
+
+response = requests.get(url)
+
+
+# In[7]:
+
+
+# data = response.json()
+# json_str = json.dumps(data, indent =4)
+# print(json_str)
+
+
+# In[8]:
+
+
+# create a function to convert temperature from kelvin to celcius
+def kelvin_to_celsius(temp_k):
+    return temp_k - 273.15
+
+
+# In[9]:
+
+
+import datetime  # Import the datetime module
+
+if response.status_code == 200:
+    data = response.json()
+    weather_data = []
+    for hour in data['list']:
+        date_time = datetime.datetime.utcfromtimestamp(hour['dt']).strftime('%Y-%m-%d %H:%M:%S')  # Use datetime.datetime
+        temp = kelvin_to_celsius(hour['main']['temp'])
+        feels_like = kelvin_to_celsius(hour['main']['feels_like'])
+        pressure = hour['main']['pressure']
+        humidity = hour['main']['humidity']
+        weather_main = hour['weather'][0]['main']
+        weather_description = hour['weather'][0]['description']
+        wind_speed = hour['wind']['speed']
+        wind_direction = hour['wind']['deg']
+        cloudiness = hour['clouds']['all']
+        rain_volume = hour.get('rain', {}).get('3h', 0)
+        snow_volume = hour.get('snow', {}).get('3h', 0)
+        
+        weather_data.append({
+            "DateTime": date_time,
+            "Temperature": temp,
+            "Feels Like_temp": feels_like,
+            "Pressure(hPa)": pressure,
+            "Humidity_percent": humidity,
+            "Weather": weather_main,
+            "Weather Description": weather_description,
+            "Wind Speed": wind_speed,
+            "Wind Direction": wind_direction,
+            "Cloudiness": cloudiness,
+            "Rain Volume(mm)": rain_volume,
+            "Snow Volume(mm)": snow_volume
+        })
+    df = pd.DataFrame(weather_data)
+else:
+    print(f"Failed to get data: {response.status_code}")
+df.head()
+
+
+# In[10]:
+
+
+df['DateTime'] = pd.to_datetime(df['DateTime'])
+
+df['Day'] = df['DateTime'].dt.date
+df['Hour'] = df['DateTime'].dt.hour
+
+
+# In[11]:
+
+
+import os
+
+# Check if the directory exists, if not, create it
+directory = r'C:\Users'
+if not os.path.exists(directory):
+    os.makedirs(directory)
+
+# Save DataFrame to CSV
+csv_file_path = os.path.join(directory, 'weather_data.csv')
+df.to_csv(csv_file_path, index=False)
+
+print(f"DataFrame saved as CSV: {csv_file_path}")
+
+
+# In[12]:
+
+
+import psycopg2
+from sqlalchemy import create_engine
+
+
+# In[18]:
+
+
+db_username = 'postgres'
+db_password = 'pass'
+db_host = 'localhost'
+db_port = 5432
+db_name = 'postgres'
+
+
+# In[19]:
+
+
+engine = create_engine(f'postgresql://{db_username}:{db_password}@{db_host}:{db_port}/{db_name}')
+
+
+# In[20]:
+
+
+table_name = 'weather_data'
+df.to_sql(table_name, engine, if_exists='replace', index=False)
+engine.dispose()
+
+
+# In[ ]:
+
+
+
+
